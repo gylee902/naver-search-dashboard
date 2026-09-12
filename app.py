@@ -149,15 +149,8 @@ with st.sidebar:
     st.image("https://developers.naver.com/inc/devcenter/images/naver_logo.png", width=160)
     st.title("⚙️ 마켓 인사이트 설정")
     
-    # 1. API 인증 체계
-    st.markdown("### 🔑 네이버 API 인증")
-    auth_platform = st.radio(
-        "인증 플랫폼 선택",
-        options=["NCP (Naver Cloud Platform)", "Naver Developers (Open API)"],
-        index=0,
-        help="NCP NAVER API HUB(X-NCP-APIGW-API-KEY-ID) 또는 네이버 개발자센터(X-Naver-Client-Id)"
-    )
-    auth_type = "ncp" if "NCP" in auth_platform else "openapi"
+    # 1. API 인증 상태 (컴퓨터 .env 또는 Streamlit Secrets에서 자동 로드 - 페이지에 노출 안 됨)
+    st.markdown("### 🔑 네이버 API 인증 상태")
     
     def _get_key(key_name: str) -> str:
         try:
@@ -167,58 +160,48 @@ with st.sidebar:
             pass
         return os.getenv(key_name, "")
 
-    target_id_key = "NCP_CLIENT_ID" if auth_type == "ncp" else "NAVER_CLIENT_ID"
-    target_secret_key = "NCP_CLIENT_SECRET" if auth_type == "ncp" else "NAVER_CLIENT_SECRET"
+    ncp_id = _get_key("NCP_CLIENT_ID")
+    ncp_sec = _get_key("NCP_CLIENT_SECRET")
+    nav_id = _get_key("NAVER_CLIENT_ID")
+    nav_sec = _get_key("NAVER_CLIENT_SECRET")
     
-    env_id = _get_key(target_id_key) or _get_key("NAVER_CLIENT_ID") or _get_key("NCP_CLIENT_ID")
-    env_secret = _get_key(target_secret_key) or _get_key("NAVER_CLIENT_SECRET") or _get_key("NCP_CLIENT_SECRET")
-        
-    client_id = st.text_input(
-        "Client ID / API Key ID",
-        value=env_id,
-        type="default",
-        placeholder="NCP API Key ID 또는 Client ID"
-    )
-    client_secret = st.text_input(
-        "Client Secret / API Secret Key",
-        value=env_secret,
-        type="password",
-        placeholder="Secret Key"
-    )
+    has_ncp = bool(ncp_id.strip() and ncp_sec.strip())
+    has_nav = bool(nav_id.strip() and nav_sec.strip())
     
-    if st.button("💾 입력한 키를 .env 파일에 저장", use_container_width=True):
-        env_path = ".env"
-        lines = []
-        if os.path.exists(env_path):
-            with open(env_path, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-        
-        id_key = "NCP_CLIENT_ID" if auth_type == "ncp" else "NAVER_CLIENT_ID"
-        sec_key = "NCP_CLIENT_SECRET" if auth_type == "ncp" else "NAVER_CLIENT_SECRET"
-        
-        updated = False
-        new_lines = []
-        for line in lines:
-            if line.startswith(f"{id_key}="):
-                new_lines.append(f"{id_key}={client_id.strip()}\n")
-                updated = True
-            elif line.startswith(f"{sec_key}="):
-                new_lines.append(f"{sec_key}={client_secret.strip()}\n")
-            else:
-                new_lines.append(line)
-        if not updated:
-            new_lines.append(f"{id_key}={client_id.strip()}\n")
-            new_lines.append(f"{sec_key}={client_secret.strip()}\n")
-            
-        with open(env_path, "w", encoding="utf-8") as f:
-            f.writelines(new_lines)
-        st.success("✅ .env 파일에 API 키가 성공적으로 저장되었습니다!")
+    if has_ncp and has_nav:
+        auth_platform = st.radio(
+            "인증 플랫폼 선택",
+            options=["NCP (Naver Cloud Platform)", "Naver Developers (Open API)"],
+            index=0,
+            help="로컬 .env 또는 Secrets에 등록된 키 중 사용할 플랫폼을 선택합니다."
+        )
+        auth_type = "ncp" if "NCP" in auth_platform else "openapi"
+        client_id = ncp_id if auth_type == "ncp" else nav_id
+        client_secret = ncp_sec if auth_type == "ncp" else nav_sec
+        st.success("🟢 API 인증키 연동 완료 (보안 로드)")
+    elif has_ncp:
+        auth_type = "ncp"
+        client_id = ncp_id
+        client_secret = ncp_sec
+        st.success("🟢 **NCP API Gateway** 연동 완료 (보안 로드)")
+    elif has_nav:
+        auth_type = "openapi"
+        client_id = nav_id
+        client_secret = nav_sec
+        st.success("🟢 **Naver Developers Open API** 연동 완료 (보안 로드)")
+    else:
+        auth_type = "openapi"
+        client_id = ""
+        client_secret = ""
+        st.info("⚪ **데모(Mock) 모드**: 로컬 .env 또는 Secrets에 키가 없습니다.")
         
     has_keys = bool(client_id.strip() and client_secret.strip())
     use_mock = st.toggle("🧪 데모(Mock) 데이터 모드", value=not has_keys)
     
     if use_mock:
         st.info("💡 데모 모드 활성화: 샘플 데이터로 5대 지능형 마켓 분석 기능을 바로 체험하실 수 있습니다.")
+    else:
+        st.caption("🔒 API 키는 로컬 환경(.env / Secrets)에서만 안전하게 관리됩니다.")
 
     st.markdown("---")
     
@@ -419,7 +402,36 @@ def render_channel_eda_page(channel_name: str, df: pd.DataFrame, total_count: in
 
     st.markdown("---")
     
-    # 2. 📊 5종 이상의 시각화 그래프 (파이차트 제외)
+    # 2. 이미지 채널 전용: 🖼️ 수집된 실시간 이미지 갤러리 뷰
+    if channel_name == "이미지":
+        st.markdown(f"<div class='section-title'>🖼️ [이미지 갤러리] '{primary_kw}' 수집 이미지 검색 결과</div>", unsafe_allow_html=True)
+        items_list = df.to_dict("records")
+        if items_list:
+            cols_per_row = 4
+            for i in range(0, min(len(items_list), 40), cols_per_row):
+                cols = st.columns(cols_per_row)
+                for j in range(cols_per_row):
+                    if i + j < len(items_list):
+                        item = items_list[i + j]
+                        img_url = item.get("thumbnail") or item.get("link", "")
+                        img_title = item.get("title", "이미지")
+                        img_link = item.get("link", "#")
+                        with cols[j]:
+                            if img_url:
+                                try:
+                                    st.image(img_url, use_container_width=True, caption=img_title[:28])
+                                except Exception:
+                                    st.caption(f"🖼️ {img_title}")
+                            else:
+                                st.caption(f"🖼️ {img_title}")
+                            if img_link and img_link != "#":
+                                st.markdown(f"<a href='{img_link}' target='_blank' style='font-size:0.8rem; text-decoration:none; color:#03C75A; font-weight:600;'>🔗 원본 보기</a>", unsafe_allow_html=True)
+                            st.markdown("<div style='margin-bottom:12px;'></div>", unsafe_allow_html=True)
+        else:
+            st.info("수집된 이미지가 없습니다.")
+        st.markdown("---")
+
+    # 3. 📊 5종 이상의 시각화 그래프 (파이차트 제외)
     st.markdown(f"<div class='section-title'>📊 [그래프 분석] '{channel_name}' 5대 시각화 차트 (파이차트 제외)</div>", unsafe_allow_html=True)
     
     g_col1, g_col2 = st.columns(2)
