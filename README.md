@@ -49,3 +49,20 @@ uv run streamlit run app.py
 NAVER_CLIENT_ID=your_client_id_here
 NAVER_CLIENT_SECRET=your_client_secret_here
 ```
+
+---
+
+## 🌐 Streamlit Community Cloud 배포 가이드 (share.streamlit.io)
+
+1. [Streamlit Community Cloud](https://share.streamlit.io/)에 GitHub 계정으로 로그인합니다.
+2. **New app** 버튼을 클릭합니다.
+3. Repository: `gylee902/naver-search-dashboard`
+4. Branch: `main`
+5. Main file path: `app.py`
+6. **Advanced settings > Secrets**에 네이버 API 키를 등록합니다 (선택):
+```toml
+NAVER_CLIENT_ID = "YOUR_NAVER_CLIENT_ID"
+NAVER_CLIENT_SECRET = "YOUR_NAVER_CLIENT_SECRET"
+```
+7. **Deploy!** 버튼을 누르면 배포가 완료됩니다.
+

@@ -159,12 +159,19 @@ with st.sidebar:
     )
     auth_type = "ncp" if "NCP" in auth_platform else "openapi"
     
-    env_id = os.getenv("NCP_CLIENT_ID" if auth_type == "ncp" else "NAVER_CLIENT_ID", "")
-    env_secret = os.getenv("NCP_CLIENT_SECRET" if auth_type == "ncp" else "NAVER_CLIENT_SECRET", "")
-    if not env_id:
-        env_id = os.getenv("NAVER_CLIENT_ID", "") or os.getenv("NCP_CLIENT_ID", "")
-    if not env_secret:
-        env_secret = os.getenv("NAVER_CLIENT_SECRET", "") or os.getenv("NCP_CLIENT_SECRET", "")
+    def _get_key(key_name: str) -> str:
+        try:
+            if hasattr(st, "secrets") and key_name in st.secrets:
+                return str(st.secrets[key_name])
+        except Exception:
+            pass
+        return os.getenv(key_name, "")
+
+    target_id_key = "NCP_CLIENT_ID" if auth_type == "ncp" else "NAVER_CLIENT_ID"
+    target_secret_key = "NCP_CLIENT_SECRET" if auth_type == "ncp" else "NAVER_CLIENT_SECRET"
+    
+    env_id = _get_key(target_id_key) or _get_key("NAVER_CLIENT_ID") or _get_key("NCP_CLIENT_ID")
+    env_secret = _get_key(target_secret_key) or _get_key("NAVER_CLIENT_SECRET") or _get_key("NCP_CLIENT_SECRET")
         
     client_id = st.text_input(
         "Client ID / API Key ID",
