@@ -8,6 +8,9 @@ import pandas as pd
 import numpy as np
 import networkx as nx
 from typing import List, Tuple, Dict, Any
+import os
+import platform
+import matplotlib.font_manager as fm
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
 
@@ -16,6 +19,48 @@ COLOR_PALETTE = [
     "#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#06b6d4",
     "#ec4899", "#6366f1", "#14b8a6", "#f43f5e", "#64748b"
 ]
+
+def get_korean_font_path() -> str | None:
+    """크로스 플랫폼(Linux, Windows, macOS) 한글 폰트 경로 자동 탐색"""
+    candidates = [
+        # Linux (Streamlit Cloud / Debian / Ubuntu)
+        "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
+        "/usr/share/fonts/truetype/nanum/NanumBarunGothic.ttf",
+        "/usr/share/fonts/truetype/nanum/NanumSquareR.ttf",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/baekmuk/gulim.ttf",
+        # Windows
+        os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "Fonts", "malgun.ttf"),
+        os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "Fonts", "gulim.ttc"),
+        os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "Fonts", "batang.ttc"),
+        # macOS
+        "/System/Library/Fonts/Supplemental/AppleGothic.ttf",
+        "/Library/Fonts/NanumGothic.ttf",
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            return path
+            
+    try:
+        for font in fm.fontManager.ttflist:
+            if any(k in font.name.lower() for k in ["nanum", "malgun", "gothic", "noto sans cjk", "apple"]):
+                return font.fname
+    except Exception:
+        pass
+    return None
+
+# Matplotlib 한글 폰트 및 마이너스 기호 설정
+plt.rcParams['axes.unicode_minus'] = False
+_korean_font = get_korean_font_path()
+if _korean_font:
+    try:
+        fm.fontManager.addfont(_korean_font)
+        _font_prop = fm.FontProperties(fname=_korean_font)
+        plt.rcParams['font.family'] = _font_prop.get_name()
+    except Exception:
+        pass
+
 
 # ----------------- 1. 공통 / 종합 시각화 (파이차트 제외) -----------------
 
@@ -313,23 +358,25 @@ def plot_day_of_week_distribution(df: pd.DataFrame) -> go.Figure:
 # ----------------- 3. 기타 유틸리티 시각화 -----------------
 
 def generate_wordcloud_figure(keywords_freq: List[Tuple[str, int]]):
-    """Matplotlib 기반 워드클라우드 생성"""
+    """Matplotlib 기반 워드클라우드 생성 (한글 폰트 깨짐 완벽 방지)"""
     if not keywords_freq:
         return None
         
     word_dict = dict(keywords_freq)
+    font_path = get_korean_font_path()
     
-    wc = WordCloud(
-        font_path="C:/Windows/Fonts/malgun.ttf",
-        width=800,
-        height=380,
-        background_color="white",
-        colormap="viridis",
-        max_words=60
-    )
-    
+    wc_kwargs = {
+        "width": 800,
+        "height": 380,
+        "background_color": "white",
+        "colormap": "viridis",
+        "max_words": 60
+    }
+    if font_path:
+        wc_kwargs["font_path"] = font_path
+        
     try:
-        wc.generate_from_frequencies(word_dict)
+        wc = WordCloud(**wc_kwargs).generate_from_frequencies(word_dict)
     except Exception:
         wc = WordCloud(
             width=800,

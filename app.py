@@ -501,8 +501,8 @@ if st.session_state.data_loaded:
     channel_dfs = st.session_state.channel_dataframes
     ai_summaries = st.session_state.ai_summaries
     saved_paths = st.session_state.saved_paths
-    primary_kw = st.session_state.primary_keyword
-    combined_df = pd.concat([df for df in channel_dfs.values() if not df.empty], ignore_index=True) if channel_dfs else pd.DataFrame()
+    valid_dfs = [df for df in channel_dfs.values() if isinstance(df, pd.DataFrame) and not df.empty] if channel_dfs else []
+    combined_df = pd.concat(valid_dfs, ignore_index=True) if valid_dfs else pd.DataFrame()
 
     # TOP KPI METRICS
     st.markdown("### 📌 마켓 종합 KPI 메트릭")
@@ -585,6 +585,8 @@ if st.session_state.data_loaded:
         st.subheader("📈 일자별 시장 여론 감성 지수 시계열 추이 (뉴스/블로그/카페 통합)")
         if not combined_df.empty:
             st.plotly_chart(plot_sentiment_timeline(combined_df), use_container_width=True, key="sentiment_timeline_line_chart")
+        else:
+            st.info("수집된 문서가 없어 감성 지수 시계열을 생성할 수 없습니다.")
 
     # 3. 쇼핑 인사이트 탭
     with tab_shopping:
@@ -617,6 +619,8 @@ if st.session_state.data_loaded:
             st.subheader("🏷️ 핵심 담론 잠재 토픽(Topic Modeling) 자동 분류표")
             df_topics = extract_latent_topics(combined_df, num_topics=3, custom_stopwords=[primary_kw])
             st.dataframe(df_topics, use_container_width=True, key="topics_latent_df_table")
+        else:
+            st.info("수집된 문서가 없어 토픽 모델링 및 네트워크 분석을 생성할 수 없습니다.")
 
     # 5. 뉴스 탭
     with tab_news:
